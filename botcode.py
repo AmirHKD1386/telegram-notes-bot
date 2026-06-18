@@ -7,6 +7,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
+from datetime import datetime
 
 apihelper.proxy = {'https': 'http://proxy.server:3128'}
 
@@ -28,26 +29,45 @@ COUNTER_FILE = os.path.join(BASE_DIR, 'unique_users.txt')
 ADMIN_CHAT_ID = 691242717  # ⚠️ آیدی عددی تلگرام خودت را اینجا بنویس تا آمار خودت شمرده نشود
 
 def increment_usage(chat_id):
-    """ذخیره آیدی کاربر برای محاسبه آمار بدون تکرار"""
+    """ذخیره آیدی کاربر همراه با تاریخ روز برای تفکیک آمار"""
     if chat_id in authenticated_admins or chat_id == ADMIN_CHAT_ID:
         return
     
-    existing_users = set()
+    # گرفتن تاریخ امروز میلادی
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    record = f"{today_str},{chat_id}\n"
+    
+    # خواندن رکوردها برای جلوگیری از ثبت تکراری "در یک روز مشخص"
+    existing_records = set()
     if os.path.exists(COUNTER_FILE):
         with open(COUNTER_FILE, 'r') as f:
-            existing_users = set(line.strip() for line in f if line.strip())
+            existing_records = set(line.strip() for line in f if line.strip())
             
-    if str(chat_id) not in existing_users:
+    # اگر این کاربر امروز هنوز ثبت نشده، ثبتش کن
+    if f"{today_str},{chat_id}" not in existing_records:
         with open(COUNTER_FILE, 'a') as f:
-            f.write(f"{chat_id}\n")
+            f.write(record)
 
-def get_usage_count():
-    """محاسبه تعداد کل کاربران منحصربه‌فرد بر اساس تعداد خطوط فایل"""
+def get_detailed_stats():
+    """محاسبه آمار امروز و آمار کل کاربران منحصربه‌فرد"""
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    
+    total_unique_users = set()
+    today_unique_users = set()
+    
     if os.path.exists(COUNTER_FILE):
         with open(COUNTER_FILE, 'r') as f:
-            lines = [line.strip() for line in f if line.strip()]
-            return len(lines)
-    return 0
+            for line in f:
+                line = line.strip()
+                if not line or ',' not in line:
+                    continue
+                date_part, uid_part = line.split(',', 1)
+                
+                total_unique_users.add(uid_part)
+                if date_part == today_str:
+                    today_unique_users.add(uid_part)
+                    
+    return len(today_unique_users), len(total_unique_users)
 
 # ================== مدیریت هوشمند اتصال گوگل درایو ==================
 drive_service = None
@@ -117,11 +137,12 @@ def send_stats(message):
     if message.chat.id not in authenticated_admins:
         return
         
-    current_count = get_usage_count()
+    today_count, total_count = get_detailed_stats()
     bot.reply_to(
         message, 
-        f"📊 **آمار عملکرد ربات جزوات:**\n\n"
-        f"👥 تعداد کل دانشجویان (کاربران یکتا): **{current_count}** نفر",
+        f"📊 **آمار هوشمند ربات جزوات:**\n\n"
+        f"🔹 کاربران یکتای **امروز**: **{today_count}** نفر\n"
+        f"🔸 کل کاربران یکتا از **ابتدا**: **{total_count}** نفر",
         parse_mode="Markdown"
     )
 
