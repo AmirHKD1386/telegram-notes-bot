@@ -12,8 +12,8 @@ from datetime import datetime
 apihelper.proxy = {'https': 'http://proxy.server:3128'}
 
 # ================== تنظیمات اصلی ربات ==================
-BOT_TOKEN = '8550656921:AAFWL3rWvP4sTbrpvkjWYEDr_k0YZ6eeV8w'
-ADMIN_PASSWORD = 'amIr138619'
+BOT_TOKEN = os.getenv('BOT_TPKEN')
+ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD')
 DRIVE_FOLDER_ID = '1Vd04HROCH7ijcAXGnE28RvdjoCe9hQ6E'
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
